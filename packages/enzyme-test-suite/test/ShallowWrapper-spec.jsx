@@ -3351,8 +3351,8 @@ describe('shallow', () => {
           }
         }
         const result = shallow(<Foo />, { lifecycleExperimental: true });
-        expect(result.state('count')).to.equal(2);
-        expect(spy.callCount).to.equal(2);
+        expect(result.state()).to.have.property('count', 2);
+        expect(spy).to.have.property('callCount', 2);
       });
     });
 
@@ -3382,19 +3382,17 @@ describe('shallow', () => {
           }
           render() {
             spy('render');
-            return <div>{this.state.foo}</div>;
+            const { foo } = this.state;
+            return <div>{foo}</div>;
           }
         }
         Foo.contextTypes = {
           foo: PropTypes.string,
         };
 
-        const wrapper = shallow(
-          <Foo foo="bar" />,
-          {
-            context: { foo: 'context' },
-          },
-        );
+        const wrapper = shallow(<Foo foo="bar" />, {
+          context: { foo: 'context' },
+        });
         wrapper.setProps({ foo: 'baz' });
         wrapper.setProps({ foo: 'bax' });
         expect(spy.args).to.deep.equal([
@@ -3973,6 +3971,40 @@ describe('shallow', () => {
         const wrapper = shallow(<Foo />);
         wrapper.unmount();
         expect(spy).to.have.property('callCount', 1);
+      });
+    });
+
+    context('component instance', () => {
+      it('should call `componentDidUpdate` when component’s `setState` is called', () => {
+        const spy = sinon.spy();
+        class Foo extends React.Component {
+          constructor(props) {
+            super(props);
+            this.state = {
+              foo: 'init',
+            };
+          }
+          componentDidUpdate() {
+            spy();
+          }
+          onChange() {
+            // enzyme can't handle the update because `this` is a ReactComponent instance,
+            // not a ShallowWrapper instance.
+            this.setState({ foo: 'onChange update' });
+          }
+          render() {
+            return <div>{this.state.foo}</div>;
+          }
+        }
+        const wrapper = shallow(<Foo />);
+
+        wrapper.setState({ foo: 'wrapper setState update' });
+        expect(wrapper.state('foo')).to.equal('wrapper setState update');
+        expect(spy).to.have.property('callCount', 1);
+
+        wrapper.instance().onChange();
+        expect(wrapper.state('foo')).to.equal('onChange update');
+        expect(spy).to.have.property('callCount', 2);
       });
     });
 
